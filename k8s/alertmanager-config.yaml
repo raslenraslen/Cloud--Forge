@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+  labels:
+    app: alertmanager
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    route:
+      receiver: 'discord'
+
+    receivers:
+      - name: 'discord'
+        webhook_configs:
+          - url: 'https://discord.com/api/webhooks/1383138649264099460/V1ipFwUemi5Sl9HG7EFFiM6VAvmFIJ3CM722pl6Z4Ehs4q6QJtbfAPDz4sZVbcWOK_Bg'
+            send_resolved: true
+            http_config:
+              headers:
+                Content-Type: application/json
+
+            body: |
+            {
+              "content": "Alert: {{ .CommonAnnotations.summary }}\nDescription: {{ .CommonAnnotations.description }}\nSeverity: {{ .CommonLabels.severity }}\nStatus: {{ .Status }}"
+            }

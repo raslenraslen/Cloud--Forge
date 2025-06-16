@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: monitoring
+data:
+  alert-rules.yml: |
+    groups:
+      - name: general-alerts
+        rules:
+
+          # 1. Instance down
+          - alert: InstanceDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Instance {{ $labels.instance }} is down"
+              description: "Target {{ $labels.instance }} (job {{ $labels.job }}) is down for more than 1 minute."
+
+          # 2. Container restart
+          - alert: ContainerRestarted
+            expr: increase(kube_pod_container_status_restarts_total[5m]) > 3
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container restarted too often"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} restarted more than 3 times in 5 minutes."
+
+          # 3. High CPU usage
+          - alert: HighCPUUsage
+            expr: rate(container_cpu_usage_seconds_total{container!="", pod!=""}[2m]) > 0.8
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage"
+              description: "CPU usage above 80% for container {{ $labels.container }}."
+
+          # 4. High Memory usage
+          - alert: HighMemoryUsage
+            expr: container_memory_usage_bytes{container!=""} / container_spec_memory_limit_bytes{container!=""} > 0.9
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage"
+              description: "Memory usage above 90% for container {{ $labels.container }}."
+
+          # 5. Pod not ready
+          - alert: PodNotReady
+            expr: kube_pod_status_ready{condition="true"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod not ready"
+              description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is not ready."
+
+          # 6. HTTP 5xx errors (Spring Boot apps)
+          - alert: HighHttp5xxRate
+            expr: rate(http_server_requests_seconds_count{status=~"5.."}[1m]) > 5
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High 5xx error rate"
+              description: "More than 5 HTTP 5xx errors per second on route {{ $labels.uri }}."
+
+          # 7. High response time
+          - alert: HighResponseLatency
+            expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[2m])) > 1.5
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High response latency"
+              description: "95th percentile response time > 1.5s on {{ $labels.uri }}."
+
+          # 8. Prometheus cannot scrape target
+          - alert: PrometheusTargetMissing
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Prometheus scrape target missing"
+              description: "Prometheus cannot scrape {{ $labels.instance }} (job {{ $labels.job }})."
+
+          # 9. Prometheus lui-même down
+          - alert: PrometheusDown
+            expr: absent(up{job="prometheus"})
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Prometheus is down"
+              description: "Prometheus server is not running or not reachable."
+
+          # 10. Kafka consumer lag (si Kafka présent)
+          - alert: KafkaLagTooHigh
+            expr: kafka_consumergroup_lag > 5000
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Kafka lag too high"
+              description: "Consumer lag for topic {{ $labels.topic }} exceeds 5000 messages."
+
+          # 11. Database slow query (si métrique exposée)
+          - alert: DatabaseSlowQuery
+            expr: rate(myapp_db_query_duration_seconds_sum[1m]) / rate(myapp_db_query_duration_seconds_count[1m]) > 1
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Slow database query"
+              description: "Average DB query time exceeds 1s."
+
+

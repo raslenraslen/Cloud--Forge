@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.46.0
+          ports:
+            - containerPort: 9090
+          args:
+            - --enable-feature=exemplar-storage
+            - --config.file=/etc/prometheus/prometheus.yml
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+            - name: prometheus-rules
+              mountPath: /etc/prometheus/alert-rules.yml
+              subPath: alert-rules.yml
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: prometheus-configmap
+        - name: prometheus-rules
+          configMap:
+            name: prometheus-alert-rules
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  type: NodePort
+  selector:
+    app: prometheus
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-configmap
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 2s
+      evaluation_interval: 2s
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+                - 'alertmanager.monitoring.svc.cluster.local:9093'
+
+    rule_files:
+      - /etc/prometheus/alert-rules.yml
+
+    scrape_configs:
+      - job_name: 'api-gateway'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['api-gateway.test.svc.cluster.local:9000']
+
+      - job_name: 'product-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['product-service.test.svc.cluster.local:8080']
+            labels:
+              application: 'Product Service'
+
+      - job_name: 'order-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['order-service.test.svc.cluster.local:8081']
+            labels:
+              application: 'Order Service'
+
+      - job_name: 'inventory-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['inventory-service.test.svc.cluster.local:8082']
+            labels:
+              application: 'Inventory Service'
+
+      - job_name: 'notification-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['notification-service.test.svc.cluster.local:8083']
+            labels:
+              application: 'Notification Service'
+
