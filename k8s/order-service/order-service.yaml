@@ -1,0 +1,23 @@
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  selector:
+    app: order-service
+    version: blue   
+  ports:
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+
+---
+
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+data:
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql.cloudforge.svc.cluster.local:3306/order_service"
