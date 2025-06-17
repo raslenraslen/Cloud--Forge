@@ -1,0 +1,22 @@
+# Fichiers Git
+.git
+.gitignore
+
+# Dépendances locales (NE JAMAIS COPIER)
+node_modules
+
+# Dossier de build (inutile pour ng serve)
+dist
+tmp
+
+# Logs et fichiers IDE
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vscode/
+.idea/
+*.sw?
+
+# Fichiers d'environnement
+.env*
+*.local
