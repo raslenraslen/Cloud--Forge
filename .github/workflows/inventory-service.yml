@@ -185,10 +185,10 @@ jobs:
         run: kubectl apply -f k8s/inventory-service/inventory-service-config.yml -n cloudforge
   
       - name: Deploy blue deployment
-        run: kubectl apply -f k8s/inventory-service/inventory-service-blue.yml -n cloudforge
+        run: kubectl apply -f k8s/inventory-service/inventory-blue.yml -n cloudforge
 
       - name: Deploy green deployment
-        run: kubectl apply -f k8s/inventory-service/inventory-service-green.yml -n cloudforge
+        run: kubectl apply -f k8s/inventory-service/inventory-green.yml -n cloudforge
 
       - name: Wait for blue rollout
         run: kubectl rollout status deployment/inventory-service-blue -n cloudforge --timeout=800s
