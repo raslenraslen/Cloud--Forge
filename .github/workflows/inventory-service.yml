@@ -1,4 +1,4 @@
-name: inventory-service Pipeline
+name: CloudForge inventory-service Pipeline
 
 on:
   push:
