@@ -223,7 +223,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: raslenmissaoui061/raslenmissaoui061/frontend-micro
+          tags: raslenmissaoui061/frontend-micro
           file: ./frontend/Dockerfile
   
   scan_image_with_trivy:
