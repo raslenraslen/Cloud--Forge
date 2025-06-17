@@ -35,3 +35,13 @@ spec:
               value: "http://inventory-service.test.svc.cluster.local:8082"
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "broker.test.svc.cluster.local:29092"
+
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-service-config
+data:
+  SPRING_DATA_MONGODB_URI: "mongodb://root:password@mongodb.test.svc.cluster.local:27017/product-service?authSource=admin"
