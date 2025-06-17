@@ -223,23 +223,66 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: raslenmissaoui061/cloudforge-frontend:latest
+          tags: raslenmissaoui061/raslenmissaoui061/frontend-micro
           file: ./frontend/Dockerfile
+  
+  scan_image_with_trivy:
+    runs-on: self-hosted 
+  
+    needs: build_docker_image_and_push 
+    steps:
+    - name: Scan Docker image for vulnerabilities with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        # On utilise l'output du job précédent pour récupérer le nom de l'image
+        image-ref: ${{ needs.build_docker_image_and_push.outputs.image_tag }}
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'HIGH,CRITICAL'
 
-  deploy_to_kubernetes:
+  deploy-to-k8s-blue-green:
     runs-on: self-hosted
-    needs: build_docker_image_and_push
+    needs: scan_image_with_trivy
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
   
       
 
-      - name: Deploy to Kubernetes
+      - name: Get current active color
+        id: get-color
         run: |
-          kubectl apply -f ./frontend/frontend-deployment.yml --namespace cloudforge
-          kubectl get pods -o wide --namespace cloudforge
-        shell: bash # Assurez-vous que toutes les étapes utilisent le même shell si vous modifiez $GITHUB_ENV
+          ACTIVE_COLOR=$(kubectl get svc frontend-service -o jsonpath='{.spec.selector.color}')
+          echo "Current color is $ACTIVE_COLOR"
+          if [ "$ACTIVE_COLOR" = "blue" ]; then
+            echo "TARGET_COLOR=green" >> $GITHUB_ENV
+          else
+            echo "TARGET_COLOR=blue" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy new version to ${{ env.TARGET_COLOR }}
+        run: |
+          kubectl set image deployment/frontend-${{ env.TARGET_COLOR }} frontend=${{ secrets.DOCKER_USERNAME }}/cloudforge-frontend:latest
+
+      - name: Wait for deployment to be ready
+        run: |
+          kubectl rollout status deployment/frontend-${{ env.TARGET_COLOR }}
+
+      - name: Smoke test new deployment
+        run: |
+          kubectl run curl-test --rm -i --tty --image=curlimages/curl --restart=Never -- \
+            curl http://frontend-${{ env.TARGET_COLOR }}:80 || exit 1
+
+      - name: Switch service to ${{ env.TARGET_COLOR }}
+        run: |
+          kubectl patch svc frontend-service -p '{"spec": {"selector": {"app": "frontend", "color": "'${{ env.TARGET_COLOR }}'"}}}'
+  
+  
+  
+  
+  
   notify_discord:
     runs-on: ubuntu-latest
     needs: [build_and_test, security-check, SonarQube_Analysis, build_docker_image_and_push]
