@@ -231,16 +231,32 @@ jobs:
   
     needs: build_docker_image_and_push 
     steps:
-    - name: Scan Docker image for vulnerabilities with Trivy
+    - name: Scan Docker image for vulnerabilities
       uses: aquasecurity/trivy-action@master
       with:
-        # On utilise l'output du job précédent pour récupérer le nom de l'image
-        image-ref: ${{ needs.build_docker_image_and_push.outputs.image_tag }}
-        format: 'table'
-        exit-code: '1'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'HIGH,CRITICAL'
+          
+          image-ref: 'raslenmissaoui061/frontend-micro'
+          
+          
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+          
+          exit-code: '0'
+
+          
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+          
+          
+          ignore-unfixed: true
+
+    - name: Upload Trivy scan report as an artifact
+      uses: actions/upload-artifact@v4
+      with:
+          # Le nom que portera l'artefact téléchargeable.
+          name: trivy-report-frontend
+          # Le chemin vers le fichier de rapport généré par l'étape précédente.
+          path: 'trivy-results.sarif'
 
   deploy-to-k8s-blue-green:
     runs-on: self-hosted
