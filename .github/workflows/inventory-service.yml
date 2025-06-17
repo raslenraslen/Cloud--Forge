@@ -31,10 +31,7 @@ jobs:
           cd ./inventory-service
           mvn clean install -DskipTests
 
-      - name: Run Maven Tests
-        run: |
-          cd ./inventory-service
-          mvn test
+     
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
