@@ -254,30 +254,32 @@ jobs:
       - name: Get current active color
         id: get-color
         run: |
-          ACTIVE_COLOR=$(kubectl get svc frontend-service -o jsonpath='{.spec.selector.color}')
-          echo "Current color is $ACTIVE_COLOR"
-          if [ "$ACTIVE_COLOR" = "blue" ]; then
-            echo "TARGET_COLOR=green" >> $GITHUB_ENV
+          CURRENT_COLOR=$(kubectl get svc frontend-service -n test -o jsonpath='{.spec.selector.color}')
+          echo "Current active color is $CURRENT_COLOR"
+          if [[ "$CURRENT_COLOR" == "blue" ]]; then
+            echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
+            echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
           else
-            echo "TARGET_COLOR=blue" >> $GITHUB_ENV
+            echo "INACTIVE_COLOR=blue" >> $GITHUB_ENV
+            echo "ACTIVE_COLOR=green" >> $GITHUB_ENV
           fi
 
-      - name: Deploy new version to ${{ env.TARGET_COLOR }}
+      - name: Deploy inactive color
         run: |
-          kubectl set image deployment/frontend-${{ env.TARGET_COLOR }} frontend=${{ secrets.DOCKER_USERNAME }}/cloudforge-frontend:latest
+          kubectl apply -f k8s/frontend/frontend-deployment-${{ env.INACTIVE_COLOR }}.yaml -n test
 
-      - name: Wait for deployment to be ready
+      - name: Wait for deployment rollout
         run: |
-          kubectl rollout status deployment/frontend-${{ env.TARGET_COLOR }}
+          kubectl rollout status deployment/frontend-${{ env.INACTIVE_COLOR }} -n test --timeout=120s
 
-      - name: Smoke test new deployment
+      - name: Switch service to new version
         run: |
-          kubectl run curl-test --rm -i --tty --image=curlimages/curl --restart=Never -- \
-            curl http://frontend-${{ env.TARGET_COLOR }}:80 || exit 1
+          kubectl patch svc frontend-service -n test -p \
+            '{"spec": {"selector": {"app": "frontend", "color": "'${{ env.INACTIVE_COLOR }}'"}}}'
 
-      - name: Switch service to ${{ env.TARGET_COLOR }}
+      - name: Delete old deployment
         run: |
-          kubectl patch svc frontend-service -p '{"spec": {"selector": {"app": "frontend", "color": "'${{ env.TARGET_COLOR }}'"}}}'
+          kubectl delete -f k8s/frontend/frontend-deployment-${{ env.ACTIVE_COLOR }}.yaml -n test_COLOR }}'"}}}'
   
   
   
