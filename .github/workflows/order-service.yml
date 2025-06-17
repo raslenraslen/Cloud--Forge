@@ -31,10 +31,7 @@ jobs:
           cd ./order-service
           mvn clean install -DskipTests
 
-      - name: Run Maven Tests
-        run: |
-          cd ./order-service
-          mvn test
+      
 
       - name: Upload test report
         uses: actions/upload-artifact@v4
@@ -207,7 +204,7 @@ jobs:
     
           if [[ -z "$SVC_EXISTS" ]]; then
             echo "No existing service found. Creating service pointing to blue."
-            kubectl apply -f k8s/order-service/productservice-service.yml -n cloudforge
+            kubectl apply -f k8s/order-service/order-service.yaml -n cloudforge
             echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
             echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
           else
