@@ -1,6 +1,5 @@
 name: frontend CloudForge CI/CD Pipeline 
 
-
 on:
   push:
     branches: ["main"]
@@ -111,7 +110,8 @@ jobs:
       - name: 📥 Download existing .done files
         uses: actions/download-artifact@v4
         with:
-          name: frontend-done-filess
+          # Correction: 'frontend-done-filess' -> 'frontend-done-files' pour correspondre au nom de l'artefact
+          name: frontend-done-files 
           path: ./.github/done-files/
         continue-on-error: true
 
@@ -137,7 +137,8 @@ jobs:
       - name: 📤 Upload updated .done files
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-done-filess
+          # Correction: 'frontend-done-filess' -> 'frontend-done-files' pour la cohérence
+          name: frontend-done-files 
           path: ./.github/done-files/
           retention-days: 3
 
@@ -210,7 +211,9 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: raslenmissaoui061
-          password: Raslen12345
+          # ATTENTION : C'est une très mauvaise pratique de stocker un mot de passe en clair.
+          # Utilise les secrets de GitHub. Crée un secret nommé DOCKER_PASSWORD et utilise ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.DOCKER_PASSWORD }} # J'ai changé ça pour ta sécurité.
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -228,34 +231,22 @@ jobs:
   
   scan_image_with_trivy:
     runs-on: self-hosted 
-  
     needs: build_docker_image_and_push 
     steps:
     - name: Scan Docker image for vulnerabilities
       uses: aquasecurity/trivy-action@master
       with:
-          
           image-ref: 'raslenmissaoui061/frontend-micro'
-          
-          
           format: 'sarif'
           output: 'trivy-results.sarif'
-          
-          
           exit-code: '0'
-
-          
           severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
-          
-          
           ignore-unfixed: true
 
     - name: Upload Trivy scan report as an artifact
       uses: actions/upload-artifact@v4
       with:
-          # Le nom que portera l'artefact téléchargeable.
           name: trivy-report-frontend
-          # Le chemin vers le fichier de rapport généré par l'étape précédente.
           path: 'trivy-results.sarif'
 
   deploy-to-k8s-blue-green:
@@ -265,18 +256,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
   
-      
+      - name: Deploy blue deployment
+        run: kubectl apply -f k8s/frontend/frontend-deployment-blue.yaml -n cloudforge
+
+      - name: Deploy green deployment
+        run: kubectl apply -f k8s/frontend/frontend-deployment-green.yaml -n cloudforge
+
+      - name: Wait for blue rollout
+        run: kubectl rollout status deployment/frontend-blue -n cloudforge --timeout=600s
+
+      - name: Wait for green rollout
+        run: kubectl rollout status deployment/frontend-green -n cloudforge --timeout=600s
 
       - name: Get current active color (or fallback to blue)
         id: get-color
         run: |
           set -e
           SVC_EXISTS=$(kubectl get svc frontend-service -n cloudforge --ignore-not-found)
-          
+    
           if [[ -z "$SVC_EXISTS" ]]; then
-            echo "No existing service found. Starting with blue active."
-            echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
+            echo "No existing service found. Creating service pointing to blue."
+            kubectl apply -f k8s/frontend/frontend-service.yaml -n cloudforge
             echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
+            echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
           else
             CURRENT_COLOR=$(kubectl get svc frontend-service -n cloudforge -o jsonpath='{.spec.selector.color}' || echo "")
             if [[ "$CURRENT_COLOR" == "blue" ]]; then
@@ -286,32 +288,17 @@ jobs:
               echo "INACTIVE_COLOR=blue" >> $GITHUB_ENV
               echo "ACTIVE_COLOR=green" >> $GITHUB_ENV
             else
-              echo "No color selector found in existing service. Assuming first deploy."
+              echo "No color selector found in existing service. Switching to blue."
+              kubectl patch svc frontend-service -n cloudforge -p '{"spec": {"selector": {"app": "frontend", "color": "blue"}}}'
               echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
               echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
             fi
           fi
 
-      - name: Deploy inactive color
-        run: |
-          kubectl apply -f k8s/frontend/frontend-deployment-${{ env.INACTIVE_COLOR }}.yaml -n cloudforge
-
-      - name: Wait for deployment rollout
-        run: |
-          kubectl rollout status deployment/frontend-${{ env.INACTIVE_COLOR }} -n cloudforge --timeout=120s
-
       - name: Switch service to new version
         run: |
-          kubectl patch svc frontend-service -n cloudforge -p \
-            '{"spec": {"selector": {"app": "frontend", "color": "'${{ env.INACTIVE_COLOR }}'"}}}'
-
-      - name: Delete old deployment
-        run: |
-          kubectl delete -f k8s/frontend/frontend-deployment-${{ env.ACTIVE_COLOR }}.yaml -n test_COLOR }}'"}}}'
-  
-  
-  
-  
+          echo "Switching service from ${{ env.ACTIVE_COLOR }} to ${{ env.INACTIVE_COLOR }}"
+          kubectl patch svc frontend-service -n cloudforge -p '{"spec": {"selector": {"app": "frontend", "color": "${{ env.INACTIVE_COLOR }}"}}}'
   
   notify_discord:
     runs-on: ubuntu-latest
@@ -332,7 +319,8 @@ jobs:
           minutes=$((duration / 60))
           seconds=$((duration % 60))
 
-          status="${{ needs.build_docker_image_and_push.result }}"
+          # On vérifie le statut du dernier job critique (le déploiement)
+          status="${{ needs.deploy-to-k8s-blue-green.result }}"
           if [ "$status" = "success" ]; then
             color="🟢"
           elif [ "$status" = "failure" ]; then
