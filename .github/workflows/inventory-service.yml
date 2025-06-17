@@ -204,7 +204,7 @@ jobs:
     
           if [[ -z "$SVC_EXISTS" ]]; then
             echo "No existing service found. Creating service pointing to blue."
-            kubectl apply -f k8s/inventory-service/productservice-service.yml -n cloudforge
+            kubectl apply -f k8s/inventory-service/inventoryservice-service.yml -n cloudforge
             echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
             echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
           else
