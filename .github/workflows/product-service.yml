@@ -184,6 +184,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: deploy product-service-config
+        run: kubectl apply -f k8s/product-service/product-service-config.yml -n cloudforge
   
       - name: Deploy blue deployment
         run: kubectl apply -f k8s/product-service/product-service-blue.yml -n cloudforge
