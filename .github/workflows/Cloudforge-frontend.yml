@@ -251,17 +251,29 @@ jobs:
   
       
 
-      - name: Get current active color
+      - name: Get current active color (or fallback to blue)
         id: get-color
         run: |
-          CURRENT_COLOR=$(kubectl get svc frontend-service -n cloudforge -o jsonpath='{.spec.selector.color}')
-          echo "Current active color is $CURRENT_COLOR"
-          if [[ "$CURRENT_COLOR" == "blue" ]]; then
+          set -e
+          SVC_EXISTS=$(kubectl get svc frontend-service -n cloudforge --ignore-not-found)
+          
+          if [[ -z "$SVC_EXISTS" ]]; then
+            echo "No existing service found. Starting with blue active."
             echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
             echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
           else
-            echo "INACTIVE_COLOR=blue" >> $GITHUB_ENV
-            echo "ACTIVE_COLOR=green" >> $GITHUB_ENV
+            CURRENT_COLOR=$(kubectl get svc frontend-service -n cloudforge -o jsonpath='{.spec.selector.color}' || echo "")
+            if [[ "$CURRENT_COLOR" == "blue" ]]; then
+              echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
+              echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
+            elif [[ "$CURRENT_COLOR" == "green" ]]; then
+              echo "INACTIVE_COLOR=blue" >> $GITHUB_ENV
+              echo "ACTIVE_COLOR=green" >> $GITHUB_ENV
+            else
+              echo "No color selector found in existing service. Assuming first deploy."
+              echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
+              echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Deploy inactive color
