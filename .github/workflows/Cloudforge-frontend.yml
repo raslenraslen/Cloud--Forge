@@ -254,7 +254,7 @@ jobs:
       - name: Get current active color
         id: get-color
         run: |
-          CURRENT_COLOR=$(kubectl get svc frontend-service -n test -o jsonpath='{.spec.selector.color}')
+          CURRENT_COLOR=$(kubectl get svc frontend-service -n cloudforge -o jsonpath='{.spec.selector.color}')
           echo "Current active color is $CURRENT_COLOR"
           if [[ "$CURRENT_COLOR" == "blue" ]]; then
             echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
@@ -266,15 +266,15 @@ jobs:
 
       - name: Deploy inactive color
         run: |
-          kubectl apply -f k8s/frontend/frontend-deployment-${{ env.INACTIVE_COLOR }}.yaml -n test
+          kubectl apply -f k8s/frontend/frontend-deployment-${{ env.INACTIVE_COLOR }}.yaml -n cloudforge
 
       - name: Wait for deployment rollout
         run: |
-          kubectl rollout status deployment/frontend-${{ env.INACTIVE_COLOR }} -n test --timeout=120s
+          kubectl rollout status deployment/frontend-${{ env.INACTIVE_COLOR }} -n cloudforge --timeout=120s
 
       - name: Switch service to new version
         run: |
-          kubectl patch svc frontend-service -n test -p \
+          kubectl patch svc frontend-service -n cloudforge -p \
             '{"spec": {"selector": {"app": "frontend", "color": "'${{ env.INACTIVE_COLOR }}'"}}}'
 
       - name: Delete old deployment
