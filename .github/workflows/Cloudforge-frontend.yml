@@ -289,7 +289,7 @@ jobs:
               echo "ACTIVE_COLOR=green" >> $GITHUB_ENV
             else
               echo "No color selector found in existing service. Switching to blue."
-              kubectl patch svc frontend-service -n cloudforge -p '{"spec": {"selector": {"app": "frontend", "color": "blue"}}}'
+              kubectl patch svc frontend -n cloudforge -p '{"spec": {"selector": {"app": "frontend", "color": "blue"}}}'
               echo "INACTIVE_COLOR=green" >> $GITHUB_ENV
               echo "ACTIVE_COLOR=blue" >> $GITHUB_ENV
             fi
@@ -298,7 +298,7 @@ jobs:
       - name: Switch service to new version
         run: |
           echo "Switching service from ${{ env.ACTIVE_COLOR }} to ${{ env.INACTIVE_COLOR }}"
-          kubectl patch svc frontend-service -n cloudforge -p '{"spec": {"selector": {"app": "frontend", "color": "${{ env.INACTIVE_COLOR }}"}}}'
+          kubectl patch svc frontend -n cloudforge -p '{"spec": {"selector": {"app": "frontend", "color": "${{ env.INACTIVE_COLOR }}"}}}'
   
   notify_discord:
     runs-on: ubuntu-latest
