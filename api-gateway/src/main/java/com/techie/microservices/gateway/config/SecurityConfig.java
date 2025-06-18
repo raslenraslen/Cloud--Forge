@@ -14,25 +14,23 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    private final String[] freeResourceUrls = {"/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
-            "/swagger-resources/**", "/api-docs/**", "/aggregate/**", "/actuator/prometheus"};
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        return httpSecurity.authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(freeResourceUrls)
-                        .permitAll()
-                        .anyRequest().authenticated())
+        return httpSecurity
+                .authorizeHttpRequests(authorize -> authorize
+                        .anyRequest().permitAll()) // Autorise toutes les requêtes
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .csrf(csrf -> csrf.disable()) // Optionnel mais souvent utile pour des APIs publiques
                 .build();
     }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.applyPermitDefaultValues();
+        configuration.applyPermitDefaultValues(); // Autorise par défaut GET, POST, etc.
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
+        configuration.addAllowedHeader("*"); // Autorise tous les headers
+        configuration.addAllowedOriginPattern("*"); // Autorise toutes les origines
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
