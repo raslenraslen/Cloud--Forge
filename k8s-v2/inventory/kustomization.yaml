@@ -5,6 +5,6 @@ kind: Kustomization
 resources:
  
   - inventory-blue.yaml
-  - inventory-green.yaml
+  - inventory-green.yml
   - service.yml
   - configmap.yml 
