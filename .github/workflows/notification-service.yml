@@ -128,7 +128,7 @@ jobs:
         with:
           projectBaseDir: ./notification-service
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ needs.get-secrets.outputs.sonar_token }}
           SONAR_HOST_URL: http://192.168.216.131:9000/
 
       - name: Download SonarQube JSON Report
