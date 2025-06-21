@@ -41,12 +41,21 @@ jobs:
           # IMPORTANT: Remplacez par l'URL publique de votre Vault
           url: http://192.168.216.131:32441
           method: jwt
-          role: github-role # Le rôle que nous avons créé
+          role: notification-service-role
           # Chemin vers les secrets pour ce service spécifique
           secrets: |
             secret/data/ci/notification-service DOCKER_PASSWORD | DOCKER_PASSWORD ;
             secret/data/ci/notification-service SONAR_TOKEN | SONAR_TOKEN ;
             secret/data/ci/notification-service DISCORD_WEBHOOK | DISCORD_WEBHOOK ;
+
+      - name: 'Debug Vault Outputs'
+        run: |
+          if [ -z "${{ steps.vault.outputs.SONAR_TOKEN }}" ]; then
+            echo "::error::ÉCHEC : Le SONAR_TOKEN est vide. Le rôle Vault est probablement mal configuré pour le dépôt 'raslenraslen/cloud--forge'."
+            exit 1
+          else
+            echo "✅ SUCCÈS : Le SONAR_TOKEN a bien été récupéré de Vault."
+          fi
 
   ###################################################
   # JOB 2: Compilation et Tests
