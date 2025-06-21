@@ -12,6 +12,11 @@ on:
       - 'notification-service/**'
       - '.github/workflows/notification-service.yml'
 
+
+permissions:
+  id-token: write   
+  contents: read
+
 # Variables globales pour le pipeline
 env:
   SERVICE_DIR: ./notification-service
