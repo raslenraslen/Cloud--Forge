@@ -127,6 +127,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
           projectBaseDir: ./notification-service
+
         env:
           SONAR_TOKEN: ${{ needs.get-secrets.outputs.sonar_token }}
           SONAR_HOST_URL: http://192.168.216.131:9000/
