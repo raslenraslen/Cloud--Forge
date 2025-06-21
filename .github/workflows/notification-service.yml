@@ -39,7 +39,7 @@ jobs:
         uses: hashicorp/vault-action@v2
         with:
           # IMPORTANT: Remplacez par l'URL publique de votre Vault
-          url: https://vault.votre-domaine.com 
+          url: http://192.168.216.131:32441
           method: jwt
           role: github-role # Le rôle que nous avons créé
           # Chemin vers les secrets pour ce service spécifique
