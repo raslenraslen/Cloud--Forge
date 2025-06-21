@@ -31,7 +31,7 @@ jobs:
     runs-on: self-hosted # Peut tourner sur un runner public car n'accède pas à l'infra
     outputs:
       docker_password: ${{ steps.vault.outputs.DOCKER_PASSWORD }}
-      sonar_token: ${{ steps.vault.outputs.SONAR_TOKEN }}
+      SONAR_TOKEN: ${{ steps.vault.outputs.SONAR_TOKEN }}
       discord_webhook: ${{ steps.vault.outputs.DISCORD_WEBHOOK }}
     steps:
       - name: 'Import Secrets from Vault'
@@ -129,7 +129,7 @@ jobs:
           projectBaseDir: ./notification-service
 
         env:
-          SONAR_TOKEN: ${{ needs.get-secrets.outputs.sonar_token }}
+          SONAR_TOKEN: ${{ needs.get-secrets.outputs.SONAR_TOKEN }}
           SONAR_HOST_URL: http://192.168.216.131:9000/
 
       - name: Download SonarQube JSON Report
@@ -168,7 +168,7 @@ jobs:
         run: |
           STATUS="${{ needs.deploy-to-k8s.result }}"
           if [[ "$STATUS" == "success" ]]; then
-            COLOR="28a745" # Vert
+            COLOR="28a745" 
             EMOJI="✅"
             MSG="Déploiement réussi"
           else
