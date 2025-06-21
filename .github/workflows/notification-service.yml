@@ -28,7 +28,7 @@ jobs:
   # JOB 1: Récupérer les secrets depuis VAULT
   ###################################################
   get-secrets:
-    runs-on: ubuntu-latest # Peut tourner sur un runner public car n'accède pas à l'infra
+    runs-on: self-hosted # Peut tourner sur un runner public car n'accède pas à l'infra
     outputs:
       docker_password: ${{ steps.vault.outputs.DOCKER_PASSWORD }}
       sonar_token: ${{ steps.vault.outputs.SONAR_TOKEN }}
