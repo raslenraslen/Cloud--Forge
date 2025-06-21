@@ -1,0 +1,152 @@
+name: notification-service Pipeline
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'notification-service/**'
+      - '.github/workflows/notification-service.yml'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'notification-service/**'
+      - '.github/workflows/notification-service.yml'
+
+# Variables globales pour le pipeline
+env:
+  SERVICE_DIR: ./notification-service
+  IMAGE_NAME: raslenmissaoui061/notification-service
+  K8S_NAMESPACE: cloudforge
+  
+jobs:
+  ###################################################
+  # JOB 1: Récupérer les secrets depuis VAULT
+  ###################################################
+  get-secrets:
+    runs-on: ubuntu-latest # Peut tourner sur un runner public car n'accède pas à l'infra
+    outputs:
+      docker_password: ${{ steps.vault.outputs.DOCKER_PASSWORD }}
+      sonar_token: ${{ steps.vault.outputs.SONAR_TOKEN }}
+      discord_webhook: ${{ steps.vault.outputs.DISCORD_WEBHOOK }}
+    steps:
+      - name: 'Import Secrets from Vault'
+        id: vault
+        uses: hashicorp/vault-action@v2
+        with:
+          # IMPORTANT: Remplacez par l'URL publique de votre Vault
+          url: https://vault.votre-domaine.com 
+          method: jwt
+          role: github-role # Le rôle que nous avons créé
+          # Chemin vers les secrets pour ce service spécifique
+          secrets: |
+            secret/data/ci/notification-service DOCKER_PASSWORD | DOCKER_PASSWORD ;
+            secret/data/ci/notification-service SONAR_TOKEN | SONAR_TOKEN ;
+            secret/data/ci/notification-service DISCORD_WEBHOOK | DISCORD_WEBHOOK ;
+
+  ###################################################
+  # JOB 2: Compilation et Tests
+  ###################################################
+  compile-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build with Maven
+        run: mvn -f ${{ env.SERVICE_DIR }}/pom.xml clean install
+
+  ###################################################
+  # JOB 3: Analyse de Sécurité et Qualité
+  ###################################################
+  analysis:
+    runs-on: self-hosted
+    needs: [get-secrets, compile-and-test] # Dépend de la récupération des secrets
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Nécessaire pour SonarQube
+          
+      - name: 🔐 Run Trivy FS Scan
+        run: trivy fs --security-checks vuln --exit-code 1 --severity HIGH,CRITICAL ${{ env.SERVICE_DIR }}
+        
+      - name: 📈 SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
+        with:
+          projectBaseDir: ${{ env.SERVICE_DIR }}
+        env:
+          # Utilisation du secret récupéré de Vault
+          SONAR_TOKEN: ${{ needs.get-secrets.outputs.sonar_token }}
+          SONAR_HOST_URL: http://192.168.216.131:9000/
+
+  ###################################################
+  # JOB 4: Build et Push de l'image Docker
+  ###################################################
+  build-and-push:
+    runs-on: self-hosted
+    needs: [get-secrets, analysis]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: raslenmissaoui061
+          # Utilisation du secret récupéré de Vault
+          password: ${{ needs.get-secrets.outputs.docker_password }}
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.SERVICE_DIR }}
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest
+          file: ${{ env.SERVICE_DIR }}/Dockerfile
+
+  ###################################################
+  # JOB 5: Déploiement sur Kubernetes
+  ###################################################
+  deploy-to-k8s:
+    runs-on: self-hosted
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Kubernetes
+        run: |
+          # Applique la config et le déploiement
+          kubectl apply -f k8s/notification-service/ -n ${{ env.K8S_NAMESPACE }}
+          # Attend que le déploiement soit terminé
+          kubectl rollout status deployment/notification-service -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+
+  ###################################################
+  # JOB 6: Notification Discord
+  ###################################################
+  notify-discord:
+    runs-on: ubuntu-latest
+    needs: [get-secrets, deploy-to-k8s]
+    if: always() # S'exécute même si un job échoue
+    steps:
+      - name: Send Discord notification
+        run: |
+          STATUS="${{ needs.deploy-to-k8s.result }}"
+          if [[ "$STATUS" == "success" ]]; then
+            COLOR="28a745" # Vert
+            EMOJI="✅"
+            MSG="Déploiement réussi"
+          else
+            COLOR="dc3545" # Rouge
+            EMOJI="❌"
+            MSG="Déploiement échoué"
+          fi
+          
+          # Webhook récupéré de Vault
+          WEBHOOK_URL="${{ needs.get-secrets.outputs.discord_webhook }}"
+          
+          curl -H "Content-Type: application/json" -X POST \
+               -d '{"embeds": [{"title": "'"$EMOJI"' Pipeline **notification-service**", "description": "'"$MSG"' sur la branche `main`.", "color": "'"$COLOR"'", "footer": {"text": "Commit par ${{ github.actor }}"}, "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"'"}]}' \
+               "$WEBHOOK_URL"
