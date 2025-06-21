@@ -99,7 +99,7 @@ jobs:
   ###################################################
   SonarQube_Analysis:
     runs-on: self-hosted
-    needs: security-check
+    needs: [ security-check , get-secrets ]
     steps:
       - name: Checkout code with full history
         uses: actions/checkout@v4
